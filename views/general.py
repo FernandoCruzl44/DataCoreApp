@@ -41,6 +41,7 @@ def render(df_casos, df_tx):
     # Ejemplos de graficas random
 
     col_g1, col_g2 = st.columns(2)
+    col_g4, col_g5 = st.columns(2)
 
     # Ejemplo conteo de transacciones por dia 
     with col_g1:
@@ -83,6 +84,38 @@ def render(df_casos, df_tx):
             st.pyplot(fig2)
         else:
             st.write("No existe columna 'fecha' en df_casos.")
+
+    with col_g4:
+        # ========== Gráfica: Top Tipificaciones (Usuarios Churn) ==========
+        st.markdown('<div class="card">Tipificaciones más comunes (solo usuarios churn)</div>', unsafe_allow_html=True)
+
+        # Filtrar únicamente casos donde churn = 1
+        df_churn = df_casos[df_casos['churn'] == 1].copy()
+
+        if df_churn.empty:
+            st.warning("No hay casos de usuarios churn en este mes/año.")
+            return
+
+        # Agrupar tipificaciones
+        conteo_tips = (
+            df_casos
+            .groupby('tipificacion_proceso')     # 👈 si se llama distinto, cámbialo aquí
+            .size()
+            .reset_index(name='count')
+            .sort_values('count', ascending=False)
+            .head(5)       # TOP 5
+        )
+
+        # Gráfica
+        fig3, ax3 = plt.subplots(figsize=(8, 4))
+        ax3.barh(conteo_tips['tipificacion_proceso'], conteo_tips['count'])
+        ax3.invert_yaxis()
+        ax3.set_xlabel("Cantidad de casos")
+        ax3.set_ylabel("Tipificación")
+        ax3.set_title("Top 5 tipificaciones más frecuentes (usuarios churn)")
+
+        st.pyplot(fig3)
+        st.dataframe(conteo_tips)
 
     # Aquí abajo puedes agregar más filas de gráficas
     # para: ganancias vs pérdidas, tipificación más común, etc.
