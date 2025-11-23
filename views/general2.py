@@ -2,7 +2,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 
 
-def render(df_casos, df_tx):
+def render(df_casos, df_tx, df_master):
     # Título
     st.markdown('<div class="big-title">Vista General</div>', unsafe_allow_html=True)
 
@@ -26,8 +26,6 @@ def render(df_casos, df_tx):
             <div class="kpi-card">
                 <div class="kpi-title">Total casos contact center</div>
                 <div class="kpi-value">{total_casos:,}</div>
-                <div class="kpi-title">Meta</div>
-                <div class="kpi-value">5000</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -110,7 +108,7 @@ def render(df_casos, df_tx):
         # Agrupar tipificaciones
         conteo_tips = (
             df_churn
-            .groupby('tipificacion_proceso')     
+            .groupby('tipificacion_proceso')     # 👈 si se llama distinto, cámbialo aquí
             .size()
             .reset_index(name='count')
             .sort_values('count', ascending=False)
@@ -137,20 +135,20 @@ def render(df_casos, df_tx):
         # Agrupar tipificaciones
         conteo_ocp = (
             df_churn
-            .groupby('occupation_category')['id_user']
-            .nunique()
-            .reset_index(name='num_users')
-            .sort_values('num_users', ascending=False)     
+            .groupby('tipificacion_proceso')     # 👈 si se llama distinto, cámbialo aquí
+            .size()
+            .reset_index(name='count')
+            .sort_values('count', ascending=False)
             .head(5)       # TOP 5
         )
 
         # Gráfica
         fig3, ax3 = plt.subplots(figsize=(8, 4))
-        ax3.barh(conteo_ocp['occupation_category'], conteo_ocp['num_users'])
+        ax3.barh(conteo_tips['tipificacion_proceso'], conteo_tips['count'])
         ax3.invert_yaxis()
-        ax3.set_xlabel("Usuarios churn")
-        ax3.set_ylabel("Categoría de ocupación")
-        ax3.set_title("Top 5 categorías de ocupación (usuarios churn)")
+        ax3.set_xlabel("Cantidad de casos")
+        ax3.set_ylabel("Tipificación")
+        ax3.set_title("Top 5 tipificaciones más frecuentes (usuarios churn)")
 
         st.pyplot(fig3)
         

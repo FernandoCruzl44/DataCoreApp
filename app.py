@@ -19,15 +19,13 @@ def load_data():
     df_tx['año'] = df_tx['fechaf'].dt.year
     df_tx['mes'] = df_tx['fechaf'].dt.month
 
-    df_casos = df_casos.merge(df_master[['id_user', 'churn']], on='id_user', how='left')
+    df_casos = df_casos.merge(df_master[['id_user', 'churn', 'occupation_category']], on='id_user', how='left')
 
     return df_casos, df_tx
 
 
 def aplicar_filtros(df_casos, df_tx, filtros):
-    """
-    Aplica los filtros de año y mes a ambas tablas.
-    """
+    #Aplicación de filtros año y mes a cada tabla
     df_c = df_casos.copy()
     df_t = df_tx.copy()
 
