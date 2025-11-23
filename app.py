@@ -1,5 +1,5 @@
 import pandas as pd 
-from components.layout import base_layout, general_sidebar
+from components.layout2 import base_layout, general_sidebar
 from views import general
 import streamlit as st
 
@@ -19,7 +19,7 @@ def load_data():
     df_tx['año'] = df_tx['fechaf'].dt.year
     df_tx['mes'] = df_tx['fechaf'].dt.month
 
-    df_casos = df_casos.merge(df_master[['id_user', 'churn', 'occupation_category']], on='id_user', how='left')
+    df_casos = df_casos.merge(df_master[['id_user', 'churn', 'occupation_category', 'qualification', 'tendencia_uso']], on='id_user', how='left')
 
     return df_casos, df_tx
 
@@ -31,14 +31,28 @@ def aplicar_filtros(df_casos, df_tx, filtros):
 
     año = filtros["año"]
     mes = filtros["mes"]
+    qualif = filtros["qualification"]
+    tendencia = filtros["tendencia_uso"]
 
     # Filtro por año
-    df_c = df_c[df_c["año"] == año]
-    df_t = df_t[df_t["año"] == año]
+    if año is not None:
+        df_c = df_c[df_c["año"] == año]
+        df_t = df_t[df_t["año"] == año]
 
     # Filtro por mes
-    df_c = df_c[df_c["mes"] == mes]
-    df_t = df_t[df_t["mes"] == mes]
+    if mes is not None:
+        df_c = df_c[df_c["mes"] == mes]
+        df_t = df_t[df_t["mes"] == mes]
+    
+    # Filtro por qualification
+    if qualif is not None:
+        df_c = df_c[df_c["qualification"] == qualif]
+        df_t = df_t[df_t['id_user'].isin(df_c['id_user'].unique())]
+    
+    # Filtro por tendencia_uso
+    if tendencia is not None:
+        df_c = df_c[df_c["tendencia_uso"] == tendencia]
+        df_t = df_t[df_t['id_user'].isin(df_c['id_user'].unique())]
 
     return df_c, df_t
 

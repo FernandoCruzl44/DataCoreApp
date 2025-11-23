@@ -71,30 +71,55 @@ def base_layout():
 def general_sidebar(df_casos, df_tx):
     st.sidebar.markdown('# Paginas')
 
-    page = st.sidebar.radio(
-        '', 
-        ["General", "Finanzas", "Predicciones", "Machine Learning"],
-        index=0
-    )
+    # Inicializar la página si no existe
+    if "page" not in st.session_state:
+        st.session_state.page = "General"
+
+    # Botones en loop
+    paginas = ["General", "Finanzas", "Predicciones", "Machine Learning"]
+    for page_name in paginas:
+        if st.sidebar.button(page_name):
+            st.session_state.page = page_name
+
+    page = st.session_state.page 
 
     st.sidebar.markdown('# Filtros')
 
     #Tabla intermedia para filtros
     df_calendario = (pd.concat([df_casos[['año', 'mes']], df_tx[['año', 'mes']]]).drop_duplicates().sort_values(['año', 'mes']))
 
-    #Filtro Año
-    anios = df_calendario['año'].unique()
-    selected_anio = st.sidebar.selectbox('Año', anios)
+    #Filtro Año y mes 
+    anios = sorted(df_calendario['año'].unique())
+    opciones_anio = ["Ninguno"] + [str(anio) for anio in anios]
+    seleccion_a = st.sidebar.selectbox('Año', opciones_anio, index=0)
 
-    #Filtro de Mes solo para ese año en especifico
+    if seleccion_a == "Ninguno":
+        selected_anio = None
+        selected_mes = None
+    else:
+        selected_anio = int(seleccion_a)
+        meses = sorted(df_calendario[df_calendario['año'] == selected_anio]['mes'].unique())
+        opciones_mes = ["Ninguno"] + [str(mes) for mes in meses]
+        seleccion_m = st.sidebar.selectbox('Mes', opciones_mes, index=0)
+        selected_mes = int(seleccion_m) if seleccion_m != "Ninguno" else None
+    
+    #Filtro de qualification
+    qualifications = sorted(df_casos['qualification'].dropna().unique().tolist())
+    opciones_qualification = ["Ninguno"] + qualifications
+    seleccion_q = st.sidebar.selectbox('Qualification', opciones_qualification, index=0)
+    selected_qualification = seleccion_q if seleccion_q != "Ninguno" else None
 
-    meses = df_calendario[df_calendario['año'] == selected_anio]['mes'].unique()
-    meses = sorted(meses)
-    selected_mes = st.sidebar.selectbox('Mes', meses)
+    #Filtro de tendencia_uso
+    tendencias = sorted(df_casos['tendencia_uso'].dropna().unique().tolist())
+    opciones_tendencia = ["Ninguno"] + tendencias
+    seleccion_t = st.sidebar.selectbox('Tendencia de Uso', opciones_tendencia, index=0)
+    selected_tendencia = seleccion_t if seleccion_t != "Ninguno" else None
 
     filtros = {
         'año': selected_anio,
-        'mes': selected_mes
+        'mes': selected_mes,
+        'qualification': selected_qualification,
+        'tendencia_uso': selected_tendencia
     }
 
     return page, filtros
