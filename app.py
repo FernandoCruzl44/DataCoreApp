@@ -1,6 +1,6 @@
 import pandas as pd 
 from components.layout2 import base_layout, general_sidebar
-from views import general2, ml
+from views import general2, ml, finanzas
 import streamlit as st
 
 @st.cache_data
@@ -72,6 +72,9 @@ def main():
 
     if page == "General":
         general2.render(df_casos_f, df_tx_f)
+
+    elif page == "Finanzas":
+        finanzas.render(df_casos_f, df_tx_f, df_master)
 
 if __name__ == "__main__":
     main()
