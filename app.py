@@ -1,6 +1,6 @@
 import pandas as pd 
 from components.layout2 import base_layout, general_sidebar
-from views import general2, ml, finanzas
+from views import general2, ml, finanzas, predicciones
 import streamlit as st
 
 @st.cache_data
@@ -10,6 +10,7 @@ def load_data():
     df_casos = pd.read_csv('data/CasosContactCenter_limpio.csv', low_memory=True)
     df_tx = pd.read_csv('data/transacciones_cleaned.csv', low_memory=True)
     df_master = pd.read_csv('data/df_master_corregido.csv', low_memory=True)
+    df_risk = pd.read_csv('data/churn_risk_scores.csv')
 
     df_casos['fecha'] = pd.to_datetime(df_casos['fecha'], errors='coerce')   
     df_casos['año'] = df_casos['fecha'].dt.year
@@ -21,7 +22,7 @@ def load_data():
 
     df_casos = df_casos.merge(df_master[['id_user', 'churn', 'occupation_category', 'qualification', 'tendencia_uso', 'state']], on='id_user', how='left')
 
-    return df_casos, df_tx
+    return df_casos, df_tx, df_risk,df_master
 
 
 def aplicar_filtros(df_casos, df_tx, filtros):
@@ -59,7 +60,7 @@ def aplicar_filtros(df_casos, df_tx, filtros):
 def main():
     base_layout()
 
-    df_casos, df_tx = load_data()
+    df_casos, df_tx, df_risk, df_master = load_data()
 
     page, filtros = general_sidebar(df_casos, df_tx)
 
@@ -72,6 +73,9 @@ def main():
 
     if page == "General":
         general2.render(df_casos_f, df_tx_f)
+    
+    elif page == "Predicciones":
+        predicciones.render(df_risk)
 
     elif page == "Finanzas":
         finanzas.render(df_casos_f, df_tx_f, df_master)
