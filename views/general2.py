@@ -1,5 +1,8 @@
 import streamlit as st
 import matplotlib.pyplot as plt
+import json
+import geopandas as gpd
+
 
 
 def render(df_casos, df_tx):
@@ -18,6 +21,8 @@ def render(df_casos, df_tx):
             <div class="kpi-card">
                 <div class="kpi-title">Total transacciones</div>
                 <div class="kpi-value">{total_tx:,}</div>
+                <div class="kpi-title">Meta</div>
+                <div class="kpi-value">500,000,000</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -49,6 +54,18 @@ def render(df_casos, df_tx):
 
     st.write("")  # separador
 
+    #Mapeo de los estados de mexico 
+    state_mapping = {
+        'AG': 'Aguascalientes','BC': 'Baja California','BS': 'Baja California Sur',
+        'CM': 'Campeche','CS': 'Chiapas','CH': 'Chihuahua','CO': 'Coahuila de Zaragoza',
+        'CL': 'Colima','DF': 'Ciudad de México','DG': 'Durango','GT': 'Guanajuato',
+        'GR': 'Guerrero','HG': 'Hidalgo','JA': 'Jalisco','EM': 'México',
+        'MI': 'Michoacán de Ocampo','MO': 'Morelos','NL': 'Nuevo León','OA': 'Oaxaca',
+        'PU': 'Puebla','QT': 'Querétaro','QR': 'Quintana Roo','SL': 'San Luis Potosí',
+        'SI': 'Sinaloa','SO': 'Sonora','TB': 'Tabasco','TM': 'Tamaulipas',
+        'TL': 'Tlaxcala','VE': 'Veracruz de Ignacio de la Llave','YU': 'Yucatán','ZA': 'Zacatecas'
+    }
+
     # Ejemplos de graficas random
 
     col_g1, col_g2 = st.columns(2)
@@ -56,24 +73,70 @@ def render(df_casos, df_tx):
 
     # Ejemplo conteo de transacciones por dia 
     with col_g1:
-        st.markdown('<div class="card">Transacciones por día (ejemplo)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="card">Mapa de personas churn por estado</div>', unsafe_allow_html=True)
 
-        if "fechaf" in df_tx.columns:
-            tx_dia = (
-                df_tx
-                .groupby(df_tx["fechaf"].dt.date)
-                .size()
-                .reset_index(name="conteo")
+        if "state" in df_casos.columns:
+            df_usuarios = (
+                df_casos[["id_user", "state","churn"]]
+                .dropna()
+                .drop_duplicates()
+            )
+        else:
+            st.warning("No se encontró la columna 'state' en df_casos.")
+            df_usuarios = None
+
+        if df_usuarios is not None and not df_usuarios.empty:
+
+            # Agrupar por estado (abreviatura)
+            resumen_estados = (
+                df_usuarios
+                .groupby("state")
+                .agg(
+                    total_usuarios=("id_user", "nunique"),
+                    churn_usuarios=("churn", lambda x: (x == 1).sum())
+                )
+                .reset_index()
             )
 
-            fig, ax = plt.subplots()
-            ax.plot(tx_dia["fechaf"], tx_dia["conteo"])
-            ax.set_xlabel("Fecha")
-            ax.set_ylabel("Transacciones")
-            ax.tick_params(axis='x', rotation=45)
-            st.pyplot(fig)
+            # Evitar división entre cero
+            resumen_estados["porcentaje_churn"] = (
+                resumen_estados["churn_usuarios"] / resumen_estados["total_usuarios"]
+            ).fillna(0) * 100
+
+            resumen_estados["estado_full"] = resumen_estados["state"].map(state_mapping)
+
+            # Cargar GeoJSON
+            with open("data/mx.json", encoding="utf-8") as f:
+                geo = json.load(f)
+
+            gdf_mex = gpd.GeoDataFrame.from_features(geo["features"])
+
+            # Unir el mapa con los datos
+            gdf_mex = gdf_mex.merge(
+                resumen_estados,
+                left_on="name",          # nombre de estado en el geojson
+                right_on="estado_full",  # nombre completo mapeado
+                how="left"
+            )
+
+            gdf_mex["porcentaje_churn"] = gdf_mex["porcentaje_churn"].fillna(0)
+
+            fig_map, ax_map = plt.subplots(figsize=(8, 6))
+            gdf_mex.plot(
+                column="porcentaje_churn",
+                cmap="Reds",          # si quieres otro, aquí lo cambias
+                linewidth=0.6,
+                edgecolor="black",
+                legend=True,
+                ax=ax_map
+            )
+
+            ax_map.set_axis_off()
+            ax_map.set_title("Porcentaje de usuarios churn por estado", fontsize=12)
+            st.pyplot(fig_map)
+
         else:
-            st.write("No existe columna 'fechaf' en df_tx.")
+            st.info("No hay usuarios suficientes para mostrar el mapa con estos filtros.")
 
     # ------ Gráfica 2: Conteo de casos por día (ejemplo) ------
     with col_g2:

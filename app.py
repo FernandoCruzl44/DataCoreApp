@@ -1,6 +1,6 @@
 import pandas as pd 
 from components.layout2 import base_layout, general_sidebar
-from views import general
+from views import general2
 import streamlit as st
 
 @st.cache_data
@@ -19,7 +19,7 @@ def load_data():
     df_tx['año'] = df_tx['fechaf'].dt.year
     df_tx['mes'] = df_tx['fechaf'].dt.month
 
-    df_casos = df_casos.merge(df_master[['id_user', 'churn', 'occupation_category', 'qualification', 'tendencia_uso']], on='id_user', how='left')
+    df_casos = df_casos.merge(df_master[['id_user', 'churn', 'occupation_category', 'qualification', 'tendencia_uso', 'state']], on='id_user', how='left')
 
     return df_casos, df_tx
 
@@ -67,7 +67,7 @@ def main():
     df_casos_f, df_tx_f = aplicar_filtros(df_casos, df_tx, filtros)
 
     if page == "General":
-        general.render(df_casos_f, df_tx_f)
+        general2.render(df_casos_f, df_tx_f)
 
 if __name__ == "__main__":
     main()
