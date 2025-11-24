@@ -83,6 +83,19 @@ def general_sidebar(df_casos, df_tx):
 
     page = st.session_state.page 
 
+    if page == "Machine Learning":
+        st.sidebar.markdown('## Hiperparámetros')
+
+        n_estimators = st.sidebar.text_input("N_estimators", "446")
+        learning_rate = st.sidebar.text_input("Learning rate", "0.3")
+        max_depth = st.sidebar.text_input("Max Depth", "3")
+        threshold = st.sidebar.text_input("Threshold", "0.25")
+
+        # Por ahora no usamos estos valores, pero ya queda claro
+        # que en el futuro se podrían conectar a un modelo real.
+        filtros = None
+        return page, filtros
+
     st.sidebar.markdown('# Filtros')
 
     #Tabla intermedia para filtros

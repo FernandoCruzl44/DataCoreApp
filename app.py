@@ -1,6 +1,6 @@
 import pandas as pd 
 from components.layout2 import base_layout, general_sidebar
-from views import general2
+from views import general2, ml
 import streamlit as st
 
 @st.cache_data
@@ -62,6 +62,10 @@ def main():
     df_casos, df_tx = load_data()
 
     page, filtros = general_sidebar(df_casos, df_tx)
+
+    if page == "Machine Learning":
+        ml.render()
+        return 
 
     # Aplicar filtros
     df_casos_f, df_tx_f = aplicar_filtros(df_casos, df_tx, filtros)
