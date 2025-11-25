@@ -2,10 +2,14 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import json
 import geopandas as gpd
+import time
 
 
 
 def render(df_casos, df_tx):
+
+    t0 = time.perf_counter()
+
     # Título
     st.markdown('<div class="big-title">Vista General</div>', unsafe_allow_html=True)
 
@@ -216,6 +220,9 @@ def render(df_casos, df_tx):
         ax3.set_title("Top 5 categorías de ocupación (usuarios churn)")
 
         st.pyplot(fig3)
+
+        t1 = time.perf_counter()
+        print(f"[render] Tiempo render: {t1 - t0:.2f} s")
         
 
 
