@@ -16,7 +16,7 @@ def render(df_casos, df_tx):
     # KPIs
     col1, col2, col3, col4 = st.columns(4)
 
-    total_tx = len(df_tx)
+    total_tx = int(df_tx['n_tx'].sum())
     total_casos = len(df_casos)
 
 

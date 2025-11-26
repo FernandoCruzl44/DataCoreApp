@@ -26,16 +26,27 @@ def load_data():
     df_tx['fechaf'] = pd.to_datetime(df_tx['fechaf'], errors='coerce')
     df_tx['año'] = df_tx['fechaf'].dt.year
     df_tx['mes'] = df_tx['fechaf'].dt.month
+
+    df_tx_agg = (
+        df_tx
+        .groupby(['año', 'mes', 'id_user'], as_index=False)
+        .agg(
+            amount=('amount', 'sum'),   
+            n_tx=('amount', 'size')    
+        )
+    )
     t3 = time.perf_counter()
     print(f"Procesamiento de fechas en {t3 - t2:.2f} segundos")
 
+    #total_tx = int(df_tx_agg['n_tx'].sum())
+    
     t4 = time.perf_counter()
     df_casos = df_casos.merge(df_master[['id_user', 'churn', 'occupation_category', 'qualification', 'tendencia_uso', 'state']], on='id_user', how='left')
     t5 = time.perf_counter()
     print(f"Merging datos en {t5 - t4:.2f} segundos")
 
     print(f"Tiempo total de load_data: {t5 - t0:.2f} segundos")
-    return df_casos, df_tx, df_risk,df_master
+    return df_casos, df_tx_agg, df_risk, df_master
 
 
 def aplicar_filtros(df_casos, df_tx, filtros):
@@ -88,9 +99,10 @@ def main():
         return 
 
     # Aplicar filtros
-    df_casos_f, df_tx_f = aplicar_filtros(df_casos, df_tx, filtros)
+    #df_casos_f, df_tx_f = aplicar_filtros(df_casos, df_tx, filtros)
 
     if page == "General":
+        df_casos_f, df_tx_f = aplicar_filtros(df_casos, df_tx, filtros)
         general2.render(df_casos_f, df_tx_f)
     
     elif page == "Predicciones":
