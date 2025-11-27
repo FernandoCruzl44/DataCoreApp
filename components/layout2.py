@@ -1,138 +1,149 @@
-import streamlit as st 
+
+import streamlit as st
 import pandas as pd
-import numpy as np
-
-def base_layout():
-    st.set_page_config(page_title="DataCore App", layout="wide")
-
+# =====================================================
+# ===============  ESTILOS Y THEME  ===================
+# =====================================================
+def load_styles():
     st.markdown("""
         <style>
-
-        /* FONDO GLOBAL */
-        .main {
-            background-color: #0d1536 !important;
+        html, body, [data-testid="stAppViewContainer"] {
+            background-color: #06141f !important;
         }
-
-        /* SIDEBAR */
-        .sidebar .sidebar-content {
-            background-color: #0a0f2b !important;
-            padding-top: 20px;
+        [data-testid="stSidebar"] {
+            background-color: #0e2a3f !important;
         }
-        .sidebar .sidebar-content h1, .sidebar .sidebar-content h2, .sidebar .sidebar-content h3 {
+        [data-testid="stSidebar"] * {
             color: white !important;
         }
-
-        /* TARJETAS KPI */
+        button[kind="secondary"] {
+            background-color: #0e2a3f !important;
+            color: white !important;
+            border: 1px solid #1f506f !important;
+        }
+        button[kind="secondary"]:hover {
+            background-color: #13405d !important;
+        }
+        h1, h2, h3, h4, h5, h6, label, p {
+            color: white !important;
+        }
         .kpi-card {
-            background: #111c44;
-            padding: 25px 30px;
-            border-radius: 16px;
-            border: 1px solid #1f2b4d;
-            box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+            background-color: #0d2536;
+            padding: 20px;
+            border-radius: 8px;
             text-align: center;
-            transition: transform .2s ease;
+            border: 1px solid #1b3b52;
+            width: 100%;
         }
-        .kpi-card:hover {
-            transform: translateY(-4px);
-        }
-
         .kpi-title {
-            color: #9da9d8;
             font-size: 14px;
-            font-weight: 500;
+            color: #9fc5dc;
+            font-weight: 600;
+            margin-bottom: 5px;
         }
         .kpi-value {
+            font-size: 28px;
+            font-weight: bold;
             color: white;
-            font-size: 32px;
-            font-weight: 700;
-            margin-top: 5px;
         }
-
-        /* TARJETAS NORMALES (GRÁFICAS) */
-        .card {
-            padding: 20px;
-            border-radius: 14px;
-            background-color: #111c44;
-            border: 1px solid #1f2b4d;
-            margin-top: 15px;
+        .kpi-meta {
+            font-size: 11px;
+            color: #b3cfe3cc;
+            margin-top: 4px;
         }
-
-        /* TÍTULOS GRANDES */
-        .big-title {
-            font-size: 30px;
-            font-weight: 700;
-            color: white;
-            margin-bottom: 20px;
+        .divider {
+            width: 100%;
+            height: 1px;
+            background-color: #1f3a4a;
+            margin: 25px 0;
         }
-
+        [data-testid="stMarkdown"] {
+            color: white !important;
+        }
+        [data-testid="stForm"] {
+            background-color: #06141f !important;
+        }
         </style>
     """, unsafe_allow_html=True)
 
-def general_sidebar(df_casos, df_tx):
-    st.sidebar.markdown('# Paginas')
+# =====================================================
+# ===============  KPI COMPONENT  =====================
+# =====================================================
+def kpi_card(title, value, meta_text=None):
+    meta_html = f"<div class='kpi-meta'>{meta_text}</div>" if meta_text else ""
+    st.markdown(
+        f"""
+        <div class='kpi-card'>
+            <div class='kpi-title'>{title}</div>
+            <div class='kpi-value'>{value}</div>
+            {meta_html}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    # Inicializar la página si no existe
+def divider():
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+
+# =====================================================
+# ===============  BASE LAYOUT  =======================
+# =====================================================
+def base_layout():
+    """Carga estilos globales y configuración."""
+    st.set_page_config(page_title="DataCore App", layout="wide")
+    load_styles()
+
+# =====================================================
+# ===============  SIDEBAR GENERAL  ====================
+# =====================================================
+def general_sidebar(df_casos, df_tx):
+    st.sidebar.markdown("## Navegación")
+    paginas = ["General", "Finanzas", "Predicciones", "Machine Learning"]
     if "page" not in st.session_state:
         st.session_state.page = "General"
-
-    # Botones en loop
-    paginas = ["General", "Finanzas", "Predicciones", "Machine Learning"]
-    for page_name in paginas:
-        if st.sidebar.button(page_name):
-            st.session_state.page = page_name
-
-    page = st.session_state.page 
-
+    for pagina in paginas:
+        if st.sidebar.button(pagina):
+            st.session_state.page = pagina
+    page = st.session_state.page
+    # Sidebar ML
     if page == "Machine Learning":
-        st.sidebar.markdown('## Hiperparámetros')
-
+        st.sidebar.markdown("## Hiperparámetros")
         n_estimators = st.sidebar.text_input("N_estimators", "446")
         learning_rate = st.sidebar.text_input("Learning rate", "0.3")
         max_depth = st.sidebar.text_input("Max Depth", "3")
         threshold = st.sidebar.text_input("Threshold", "0.25")
-
-        # Por ahora no usamos estos valores, pero ya queda claro
-        # que en el futuro se podrían conectar a un modelo real.
-        filtros = None
-        return page, filtros
-
-    st.sidebar.markdown('# Filtros')
-
-    #Tabla intermedia para filtros
-    df_calendario = (pd.concat([df_casos[['año', 'mes']], df_tx[['año', 'mes']]]).drop_duplicates().sort_values(['año', 'mes']))
-
-    #Filtro Año y mes 
+        return page, None
+    # Sidebar General filters
+    st.sidebar.markdown("## Filtros")
+    df_calendario = (
+        pd.concat([df_casos[['año','mes']], df_tx[['año','mes']]])
+        .drop_duplicates()
+        .sort_values(['año','mes'])
+    )
+    # Año
     anios = sorted(df_calendario['año'].unique())
-    opciones_anio = ["Ninguno"] + [str(anio) for anio in anios]
-    seleccion_a = st.sidebar.selectbox('Año', opciones_anio, index=0)
-
-    if seleccion_a == "Ninguno":
+    seleccion_anio = st.sidebar.selectbox("Año", ["Ninguno"] + [str(a) for a in anios])
+    if seleccion_anio == "Ninguno":
         selected_anio = None
         selected_mes = None
     else:
-        selected_anio = int(seleccion_a)
-        meses = sorted(df_calendario[df_calendario['año'] == selected_anio]['mes'].unique())
-        opciones_mes = ["Ninguno"] + [str(mes) for mes in meses]
-        seleccion_m = st.sidebar.selectbox('Mes', opciones_mes, index=0)
-        selected_mes = int(seleccion_m) if seleccion_m != "Ninguno" else None
-    
-    #Filtro de qualification
+        selected_anio = int(seleccion_anio)
+        meses = sorted(df_calendario[df_calendario['año']==selected_anio]['mes'].unique())
+        seleccion_mes = st.sidebar.selectbox("Mes", ["Ninguno"] + [str(m) for m in meses])
+        selected_mes = int(seleccion_mes) if seleccion_mes != "Ninguno" else None
+    # Qualification
     qualifications = sorted(df_casos['qualification'].dropna().unique().tolist())
-    opciones_qualification = ["Ninguno"] + qualifications
-    seleccion_q = st.sidebar.selectbox('Qualification', opciones_qualification, index=0)
-    selected_qualification = seleccion_q if seleccion_q != "Ninguno" else None
-
-    #Filtro de tendencia_uso
+    seleccion_q = st.sidebar.selectbox("Qualification", ["Ninguno"] + qualifications)
+    selected_q = seleccion_q if seleccion_q != "Ninguno" else None
+    # Tendencia de uso
     tendencias = sorted(df_casos['tendencia_uso'].dropna().unique().tolist())
-    opciones_tendencia = ["Ninguno"] + tendencias
-    seleccion_t = st.sidebar.selectbox('Tendencia de Uso', opciones_tendencia, index=0)
+    seleccion_t = st.sidebar.selectbox("Tendencia de Uso", ["Ninguno"] + tendencias)
     selected_tendencia = seleccion_t if seleccion_t != "Ninguno" else None
-
     filtros = {
-        'año': selected_anio,
-        'mes': selected_mes,
-        'qualification': selected_qualification,
-        'tendencia_uso': selected_tendencia
+        "año": selected_anio,
+        "mes": selected_mes,
+        "qualification": selected_q,
+        "tendencia_uso": selected_tendencia
     }
-
     return page, filtros
+
