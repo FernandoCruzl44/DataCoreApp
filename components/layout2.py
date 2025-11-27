@@ -142,15 +142,17 @@ def general_sidebar(df_casos, df_tx):
 
     paginas = ["General", "Finanzas", "Predicciones", "Machine Learning"]
 
-    # Mantener la selección actual
+    # Inicializar solo una vez
+    if "page" not in st.session_state:
+        st.session_state.page = "General"
+
+    # El radio queda ligado DIRECTO al session_state
     page = st.sidebar.radio(
         "Menú",
         paginas,
-        index=paginas.index(st.session_state.get("page", "General")),
+        key="page",                
         label_visibility="collapsed"
     )
-
-    st.session_state.page = page
 
     # -Machine Learning
     if page == "Machine Learning":
