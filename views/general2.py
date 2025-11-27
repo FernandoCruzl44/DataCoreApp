@@ -155,80 +155,96 @@ def render(df_casos, df_tx):
                     ax=ax_map
                 )
 
+                cb = ax_map.get_figure().axes[-1]  # colorbar
+                cb.tick_params(labelcolor="white")  # números en blanco
+                cb.yaxis.label.set_color("white")  # título blanco (por si acaso)
+                cb.set_title("")  
                 ax_map.set_axis_off()
-                ax_map.set_title("Usuarios churn por estado (%)", color="white", pad=10)
 
                 st.pyplot(fig_map)
 
-    # -------------------------
-    # ROW 2: Tipificaciones (matplotlib) | Ocupaciones (plotly)
-    # -------------------------
     row2_col1, row2_col2 = st.columns(2, gap="large")
 
-    # ---------- Tipificaciones (matplotlib horizontal bar) ----------
+    # ================================
+    # TIPIFICACIONES (CHURN)
+    # ================================
     with row2_col1:
         st.subheader("Tipificaciones más comunes (solo usuarios churn)")
 
-        # Usamos exactamente tu lógica de agregación (tipificacion_proceso) y matplotlib
         df_churn = df[df['churn'] == 1].copy()
 
         if df_churn.empty:
             st.warning("No hay casos de usuarios churn en este mes/año.")
         else:
+
             conteo_tips = (
                 df_churn
-                .groupby('tipificacion_proceso')
+                .groupby("tipificacion_proceso")
                 .size()
-                .reset_index(name='count')
-                .sort_values('count', ascending=False)
-                .head(5)       # TOP 5
+                .reset_index(name="count")
+                .sort_values("count", ascending=False)
+                .head(5)
             )
 
-            # Si el resultado está vacío (por nombres raros), lo informamos
-            if conteo_tips.empty:
-                st.info("No hay tipificaciones registradas para usuarios churn.")
-            else:
-                fig3, ax3 = plt.subplots(figsize=(8, 4), facecolor=BG)
-                fig3.patch.set_facecolor(BG)
-                ax3.barh(conteo_tips['tipificacion_proceso'], conteo_tips['count'], color=PRIMARY)
-                ax3.invert_yaxis()
-                ax3.set_xlabel("Cantidad de casos", color="white")
-                ax3.set_ylabel("Tipificación", color="white")
-                ax3.set_title("Top 5 tipificaciones más frecuentes (usuarios churn)", color="white")
-                ax3.tick_params(colors="white")
-                for spine in ax3.spines.values():
-                    spine.set_visible(False)
-                st.pyplot(fig3)
+            fig_tips = px.bar(
+                conteo_tips,
+                x="count",
+                y="tipificacion_proceso",
+                orientation="h",
+                color_discrete_sequence=[PRIMARY]
+            )
 
-    # ---------- Ocupaciones (plotly) ----------
+            fig_tips.update_layout(
+                plot_bgcolor=BG,
+                paper_bgcolor=BG,
+                font_color="white",
+                margin=dict(l=10, r=10, t=10, b=10),
+                height=350
+            )
+
+            fig_tips.update_xaxes(color="white", showgrid=False)
+            fig_tips.update_yaxes(color="white", autorange="reversed", showgrid=False)
+
+            st.plotly_chart(fig_tips, use_container_width=True)
+
+
+    # ================================
+    # OCUPACIONES (CHURN)
+    # ================================
     with row2_col2:
-        st.subheader("Ocupaciones más comunes (solo churn)")
+        st.subheader("Ocupaciones más comunes (solo usuarios churn)")
 
-        if "occupation_category" in df_churn.columns and df_churn["occupation_category"].notna().sum() > 0:
-            top_ocup = (
+        if df_churn.empty:
+            st.warning("No hay casos de usuarios churn en este mes/año.")
+        else:
+
+            conteo_ocp = (
                 df_churn["occupation_category"]
                 .fillna("Sin Información")
                 .value_counts()
                 .head(10)
                 .reset_index()
             )
-            top_ocup.columns = ["ocupacion", "count"]
 
-            fig_ocup = px.bar(
-                top_ocup,
-                x="count",
-                y="ocupacion",
+            conteo_ocp.columns = ["occupation_category", "num_users"]
+
+            fig_ocp = px.bar(
+                conteo_ocp,
+                x="num_users",
+                y="occupation_category",
                 orientation="h",
-                color_discrete_sequence=[PRIMARY],
+                color_discrete_sequence=[PRIMARY]
             )
-            fig_ocup.update_layout(
+
+            fig_ocp.update_layout(
                 plot_bgcolor=BG,
                 paper_bgcolor=BG,
                 font_color="white",
                 margin=dict(l=10, r=10, t=10, b=10),
+                height=350
             )
-            fig_ocup.update_yaxes(autorange="reversed", color="white")
-            fig_ocup.update_xaxes(color="white")
-            st.plotly_chart(fig_ocup, use_container_width=True)
-        else:
-            st.info("No hay datos de ocupación para usuarios churn.")
+
+            fig_ocp.update_xaxes(color="white", showgrid=False)
+            fig_ocp.update_yaxes(color="white", autorange="reversed", showgrid=False)
+
+            st.plotly_chart(fig_ocp, use_container_width=True)
