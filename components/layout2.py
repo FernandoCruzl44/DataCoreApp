@@ -37,10 +37,16 @@ def load_styles():
             background-color: #0d2536;
             padding: 20px;
             border-radius: 8px;
-            text-align: center;
             border: 1px solid #1b3b52;
             width: 100%;
+            height: 145px;                 /* ← Alto fijo */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;       /* Centra verticalmente */
+            align-items: center;           /* Centra horizontalmente */
+            text-align: center;
         }
+
         .kpi-title {
             font-size: 14px;
             color: #9fc5dc;
