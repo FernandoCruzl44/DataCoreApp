@@ -109,6 +109,7 @@ def main():
         predicciones.render(df_risk)
 
     elif page == "Finanzas":
+        df_casos_f, df_tx_f = aplicar_filtros(df_casos, df_tx, filtros)
         finanzas.render(df_casos_f, df_tx_f, df_master)
 
 if __name__ == "__main__":
