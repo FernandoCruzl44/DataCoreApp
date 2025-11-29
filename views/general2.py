@@ -1,17 +1,16 @@
+import time
 import json
-import streamlit as st
 import pandas as pd
 import plotly.express as px
-import matplotlib.pyplot as plt
-import geopandas as gpd
+import streamlit as st
 
 from components.layout2 import kpi_card, divider, load_styles
 
-# Color primario
+# Colores base
 PRIMARY = "#0083b8"
 BG = "#06141f"
 
-# Mapping abreviaturas -> nombre completo (usa el mismo mapping que tienes)
+# Mapping abreviaturas -> nombre completo
 STATE_MAPPING = {
     'AG': 'Aguascalientes','BC': 'Baja California','BS': 'Baja California Sur',
     'CM': 'Campeche','CS': 'Chiapas','CH': 'Chihuahua','CO': 'Coahuila de Zaragoza',
@@ -24,159 +23,203 @@ STATE_MAPPING = {
 }
 
 
-def render(df_casos, df_tx):
+def render(df_casos: pd.DataFrame,
+           df_tx: pd.DataFrame,
+           filtros: dict,
+           df_semana: pd.DataFrame,
+           df_mes: pd.DataFrame):
 
-    # Aplicar estilos globales
+    print("\n====== [GENERAL TURBO] INICIO RENDER ======")
+    t_global0 = time.perf_counter()
+
+    # Estilos globales
     load_styles()
 
+    # ---------------------------------------------------------
+    # TÍTULO
+    # ---------------------------------------------------------
     st.markdown("<h1 style='color:white;'>Dashboard General</h1>", unsafe_allow_html=True)
 
     df = df_casos.copy()
     df_tx_local = df_tx.copy()
 
-    # -------------------------
-    # KPIs (4 en la misma fila)
-    # -------------------------
+    # ---------------------------------------------------------
+    # KPIs
+    # ---------------------------------------------------------
+    col1, col2, col3, col4 = st.columns(4, gap="small")
+
     total_casos = df.shape[0]
     total_tx = int(df_tx_local['n_tx'].sum()) if 'n_tx' in df_tx_local.columns else 0
     ingresos = df_tx_local['amount'].sum() if 'amount' in df_tx_local.columns else 0
-    ingresos_fmt = f"${ingresos:,.0f}"
 
-    churn_count = df[df['churn'] == 1].shape[0]
+    churn_count = df[df.get('churn', 0) == 1].shape[0] if 'churn' in df.columns else 0
     churn_rate = 0 if total_casos == 0 else round((churn_count / total_casos) * 100, 2)
 
-    col1, col2, col3, col4 = st.columns(4, gap="small")
-
-    # Total de Casos (con meta pequeña abajo)
     with col1:
-        # usamos meta_text para el texto pequeño (layout2.kpi_card lo soporta)
         kpi_card("Total de Casos", f"{total_casos:,}", meta_text="Meta: 5,000")
 
-    # Ingresos (reemplaza "Clientes Churn")
     with col2:
-        kpi_card("Ingresos", ingresos_fmt)
+        kpi_card("Ingresos", f"${ingresos:,.0f}")
 
-    # Churn %
     with col3:
         kpi_card("Churn %", f"{churn_rate}%")
 
-    # Total Transacciones + meta pequeña
     with col4:
         kpi_card("Total Transacciones", f"{total_tx:,}", meta_text="Meta: 500,000,000")
 
-    # Separador
     divider()
 
-    # -------------------------
-    # GRID 2x2: Row1 (Casos por día | Mapa)
-    #         Row2 (Tipificaciones | Ocupaciones)
-    # -------------------------
+    # ---------------------------------------------------------
+    # LAYERS
+    # Row 1 → Mapa | Ingresos
+    # Row 2 → Tipificaciones | Ocupaciones
+    # ---------------------------------------------------------
     row1_col1, row1_col2 = st.columns(2, gap="large")
+    row2_col1, row2_col2 = st.columns(2, gap="large")
 
-    # ---------- Casos por Día (left, plotly) ----------
+    # ======================================================
+    # MAPA PLOTLY (% CHURN por estado)
+    # ======================================================
     with row1_col1:
-        st.subheader("Casos por Día")
-        if "fecha" in df.columns:
-            casos_dia = df.groupby(df["fecha"].dt.date).size().reset_index(name="casos")
-            casos_dia.columns = ["fecha", "casos"]
+        st.subheader("Mapa de personas churn por estado (México)")
 
-            fig_dia = px.line(
-                casos_dia,
-                x="fecha",
-                y="casos",
-                markers=True,
-                color_discrete_sequence=[PRIMARY],
+        if "state" in df.columns and "churn" in df.columns:
+            df_estados = (
+                df[["id_user", "state", "churn"]]
+                .dropna()
+                .drop_duplicates()
             )
-            fig_dia.update_layout(
+        else:
+            st.warning("No existen columnas 'state' o 'churn'")
+            df_estados = None
+
+        if df_estados is not None and not df_estados.empty:
+
+            resumen = (
+                df_estados
+                .groupby("state")
+                .agg(
+                    total_usuarios=("id_user", "nunique"),
+                    churn_usuarios=("churn", lambda x: (x == 1).sum())
+                )
+                .reset_index()
+            )
+
+            resumen["porcentaje_churn"] = (
+                resumen["churn_usuarios"] / resumen["total_usuarios"]
+            ).fillna(0) * 100
+
+            resumen["estado_full"] = resumen["state"].map(STATE_MAPPING)
+
+            # Cargar geojson
+            try:
+                with open("data/mx.json", encoding="utf-8") as f:
+                    geo = json.load(f)
+            except:
+                st.error("No se encontró data/mx.json")
+                geo = None
+
+            if geo is not None:
+
+                fig_map = px.choropleth(
+                    resumen,
+                    geojson=geo,
+                    locations="estado_full",
+                    featureidkey="properties.name",
+                    color="porcentaje_churn",
+                    color_continuous_scale="Reds",
+                    hover_name="estado_full",
+                    hover_data={
+                        "total_usuarios": True,
+                        "churn_usuarios": True,
+                        "porcentaje_churn": ':.2f'
+                    },
+                )
+
+                fig_map.update_geos(fitbounds="locations", visible=False)
+                fig_map.update_layout(
+                    margin=dict(l=0, r=0, t=0, b=0),
+                    paper_bgcolor=BG,
+                    plot_bgcolor=BG,
+                    font_color="white",
+
+                    # FIX FINAL AQUÍ 👇
+                    coloraxis_colorbar=dict(
+                        title=dict(
+                            text="% churn",
+                            font=dict(color="white")
+                        ),
+                        tickfont=dict(color="white")
+                    ),
+                )
+
+                st.plotly_chart(fig_map, use_container_width=True)
+
+        else:
+            st.info("No hay datos suficientes para mostrar el mapa con estos filtros.")
+
+    # ======================================================
+    # INGRESOS
+    # df_semana / df_mes TURBO
+    # ======================================================
+    with row1_col2:
+        st.subheader("Ingresos en el tiempo")
+
+        año = filtros.get("año")
+        mes = filtros.get("mes")
+
+        fig = None
+
+        # Sin año → vista por semana
+        if año is None:
+            df_plot = df_semana.copy()
+            df_plot["periodo"] = df_plot["semana"]
+            fig = px.line(df_plot, x="periodo", y="amount", markers=True)
+
+        # Solo año → meses
+        elif año is not None and mes is None:
+            df_plot = df_mes[df_mes["año"] == año].copy()
+            df_plot["periodo"] = df_plot["mes"].astype(str)
+            fig = px.line(df_plot, x="periodo", y="amount", markers=True)
+
+        # Año + mes → semanas mes-1, mes, mes+1
+        else:
+            df_plot = df_semana.copy()
+            df_plot = df_plot[
+                (df_plot["semana"].dt.year == año) &
+                (df_plot["semana"].dt.month.between(mes - 1, mes + 1))
+            ]
+            df_plot["periodo"] = df_plot["semana"]
+
+            if df_plot.empty:
+                st.warning("No hay suficientes semanas alrededor del mes seleccionado.")
+                fig = None
+            else:
+                fig = px.line(df_plot, x="periodo", y="amount", markers=True)
+
+        if fig is not None:
+            fig.update_layout(
+                height=350,
                 plot_bgcolor=BG,
                 paper_bgcolor=BG,
                 font_color="white",
                 margin=dict(l=10, r=10, t=10, b=10),
             )
-            fig_dia.update_xaxes(showgrid=False, color="white")
-            fig_dia.update_yaxes(showgrid=False, color="white")
-            st.plotly_chart(fig_dia, use_container_width=True)
-        else:
-            st.info("No existe la columna 'fecha' en los datos.")
+            fig.update_xaxes(color="white", showgrid=False)
+            fig.update_yaxes(color="white", showgrid=False)
+            st.plotly_chart(fig, use_container_width=True)
 
-    # ---------- Mapa de México (right, geopandas + matplotlib) ----------
-    with row1_col2:
-        st.subheader("Mapa de personas churn por estado (México)")
-
-        # Filtrar churn
-        df_churn = df[df['churn'] == 1].copy()
-
-        if df_churn.empty:
-            st.info("No hay casos de usuarios churn para mostrar en el mapa.")
-        else:
-            # Contar churn por abreviatura de estado
-            resumen_estados = (
-                df_churn
-                .groupby("state")
-                .agg(total_usuarios=("churn", "size"))
-                .reset_index()
-            )
-
-            # mapear abreviatura -> nombre completo para casar con geojson
-            resumen_estados["estado_full"] = resumen_estados["state"].map(STATE_MAPPING)
-
-            # Cargar geojson de México (ruta relativa al proyecto)
-            try:
-                with open("data/mx.json", encoding="utf-8") as f:
-                    geo = json.load(f)
-            except FileNotFoundError:
-                st.error("No se encontró 'data/mx.json'. Asegúrate de que exista.")
-                resumen_estados = None
-                geo = None
-
-            if geo is not None and resumen_estados is not None:
-                gdf_mex = gpd.GeoDataFrame.from_features(geo["features"])
-
-                # Unir por nombre completo
-                gdf_mex = gdf_mex.merge(
-                    resumen_estados,
-                    left_on="name",
-                    right_on="estado_full",
-                    how="left"
-                )
-
-                gdf_mex["total_usuarios"] = gdf_mex["total_usuarios"].fillna(0)
-
-                fig_map, ax_map = plt.subplots(1, 1, figsize=(8, 6), facecolor=BG)
-                ax_map.set_facecolor(BG)
-
-                # Usamos un cmap azul y edgecolor oscuro; la escala se ajusta a los datos
-                gdf_mex.plot(
-                    column="total_usuarios",
-                    cmap="Blues",
-                    linewidth=0.5,
-                    edgecolor="#0b2a3a",
-                    legend=True,
-                    ax=ax_map
-                )
-
-                cb = ax_map.get_figure().axes[-1]  # colorbar
-                cb.tick_params(labelcolor="white")  # números en blanco
-                cb.yaxis.label.set_color("white")  # título blanco (por si acaso)
-                cb.set_title("")  
-                ax_map.set_axis_off()
-
-                st.pyplot(fig_map)
-
-    row2_col1, row2_col2 = st.columns(2, gap="large")
-
-    # ================================
-    # TIPIFICACIONES (CHURN)
-    # ================================
+    # ======================================================
+    # TIPIFICACIONES churn
+    # ======================================================
     with row2_col1:
         st.subheader("Tipificaciones más comunes (solo usuarios churn)")
 
-        df_churn = df[df['churn'] == 1].copy()
+        df_churn = df[df['churn'] == 1].copy() if "churn" in df.columns else pd.DataFrame()
 
         if df_churn.empty:
             st.warning("No hay casos de usuarios churn en este mes/año.")
         else:
-
             conteo_tips = (
                 df_churn
                 .groupby("tipificacion_proceso")
@@ -198,26 +241,24 @@ def render(df_casos, df_tx):
                 plot_bgcolor=BG,
                 paper_bgcolor=BG,
                 font_color="white",
-                margin=dict(l=10, r=10, t=10, b=10),
-                height=350
+                height=350,
+                margin=dict(l=10, r=10, t=10, b=10)
             )
 
-            fig_tips.update_xaxes(color="white", showgrid=False)
-            fig_tips.update_yaxes(color="white", autorange="reversed", showgrid=False)
+            fig_tips.update_yaxes(autorange="reversed", color="white")
+            fig_tips.update_xaxes(color="white")
 
             st.plotly_chart(fig_tips, use_container_width=True)
 
-
-    # ================================
-    # OCUPACIONES (CHURN)
-    # ================================
+    # ======================================================
+    # OCUPACIONES churn
+    # ======================================================
     with row2_col2:
         st.subheader("Ocupaciones más comunes (solo usuarios churn)")
 
         if df_churn.empty:
             st.warning("No hay casos de usuarios churn en este mes/año.")
         else:
-
             conteo_ocp = (
                 df_churn["occupation_category"]
                 .fillna("Sin Información")
@@ -240,11 +281,13 @@ def render(df_casos, df_tx):
                 plot_bgcolor=BG,
                 paper_bgcolor=BG,
                 font_color="white",
-                margin=dict(l=10, r=10, t=10, b=10),
-                height=350
+                height=350,
+                margin=dict(l=10, r=10, t=10, b=10)
             )
 
             fig_ocp.update_xaxes(color="white", showgrid=False)
             fig_ocp.update_yaxes(color="white", autorange="reversed", showgrid=False)
 
             st.plotly_chart(fig_ocp, use_container_width=True)
+
+    print(f"====== [GENERAL TURBO] Render total: {time.perf_counter() - t_global0:.2f} s ======\n")
