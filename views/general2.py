@@ -35,17 +35,17 @@ def render(df_casos: pd.DataFrame,
     # Estilos globales
     load_styles()
 
-    # ---------------------------------------------------------
+    
     # TÍTULO
-    # ---------------------------------------------------------
+    
     st.markdown("<h1 style='color:white;'>Dashboard General</h1>", unsafe_allow_html=True)
 
     df = df_casos.copy()
     df_tx_local = df_tx.copy()
 
-    # ---------------------------------------------------------
+    
     # KPIs
-    # ---------------------------------------------------------
+    
     col1, col2, col3, col4 = st.columns(4, gap="small")
 
     total_casos = df.shape[0]
@@ -69,17 +69,17 @@ def render(df_casos: pd.DataFrame,
 
     divider()
 
-    # ---------------------------------------------------------
+    
     # LAYERS
     # Row 1 → Mapa | Ingresos
     # Row 2 → Tipificaciones | Ocupaciones
-    # ---------------------------------------------------------
+    # 
     row1_col1, row1_col2 = st.columns(2, gap="large")
     row2_col1, row2_col2 = st.columns(2, gap="large")
 
-    # ======================================================
-    # MAPA PLOTLY (% CHURN por estado)
-    # ======================================================
+    
+    # MAPA (% CHURN por estado)
+    
     with row1_col1:
         st.subheader(" % churn por estado (México)")
 
@@ -160,10 +160,10 @@ def render(df_casos: pd.DataFrame,
         else:
             st.info("No hay usuarios suficientes para mostrar el mapa con estos filtros.")
 
-    # ======================================================
+    
     # INGRESOS
     # df_semana / df_mes TURBO
-    # ======================================================
+    
     with row1_col2:
         st.subheader("Ingresos en el tiempo")
 
@@ -211,9 +211,9 @@ def render(df_casos: pd.DataFrame,
             fig.update_yaxes(color="white", showgrid=False)
             st.plotly_chart(fig, use_container_width=True)
 
-    # ======================================================
+    
     # TIPIFICACIONES churn
-    # ======================================================
+    
     with row2_col1:
         st.subheader("Tipificaciones más comunes (solo usuarios churn)")
 
@@ -252,9 +252,9 @@ def render(df_casos: pd.DataFrame,
 
             st.plotly_chart(fig_tips, use_container_width=True)
 
-    # ======================================================
+    
     # OCUPACIONES churn
-    # ======================================================
+    
     with row2_col2:
         st.subheader("Ocupaciones más comunes (solo usuarios churn)")
 
