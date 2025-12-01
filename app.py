@@ -93,7 +93,7 @@ def main():
     if page == "General":
         general2.render(df_casos_f, df_tx_f, filtros, df_semana, df_mes)
     elif page == "Predicciones":
-        predicciones.render(df_risk)
+        predicciones.render(df_default=df_risk)
     elif page == "Finanzas":
         finanzas.render(df_casos_f, df_tx_f, df_master)
 
