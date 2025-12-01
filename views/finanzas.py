@@ -160,17 +160,35 @@ def render(df_casos, df_tx, df_master):
         locations="estado_full",
         featureidkey="properties.name",
         color="amount",
-        color_continuous_scale="Blues",
+        color_continuous_scale=[
+            "#00121a", "#00334d", "#00557a", "#0077a6", "#0083b8", "#35a5d1"
+        ],
         hover_name="estado_full",
         labels={"amount": "Revenue"}
     )
 
-    fig_map.update_geos(fitbounds="locations", visible=False)
+    # 1) Bordes blancos entre estados (igual que en General)
+    fig_map.update_traces(marker_line_width=0.8, marker_line_color="white")
+
+    # 2) Fondo oscuro en todo y texto blanco
     fig_map.update_layout(
         height=430,
         margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)"
+        paper_bgcolor=BG,       # fondo del “lienzo”
+        plot_bgcolor=BG,        # fondo del gráfico
+        geo=dict(bgcolor=BG),   # fondo detrás del mapa
+        font=dict(color="white"),
+        coloraxis_colorbar=dict(
+            tickfont=dict(color="white"),
+            title=dict(font=dict(color="white"))
+        ),
     )
 
-    st.plotly_chart(fig_map, use_container_width=True)
+    # 3) Centrar mapa y ocultar eje/contornos extra
+    fig_map.update_geos(
+        fitbounds="locations",
+        visible=False,
+        bgcolor=BG
+    )
+
+    st.plotly_chart(fig_map, width='stretch')

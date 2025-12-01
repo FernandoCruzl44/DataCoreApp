@@ -81,7 +81,7 @@ def render(df_casos: pd.DataFrame,
     # MAPA PLOTLY (% CHURN por estado)
     # ======================================================
     with row1_col1:
-        st.subheader("Mapa de personas churn por estado (México)")
+        st.subheader(" % churn por estado (México)")
 
         if "state" in df_casos.columns:
             df_usuarios = (
