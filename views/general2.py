@@ -11,7 +11,7 @@ PRIMARY = "#0083b8"
 BG = "#06141f"
 
 # Mapping abreviaturas -> nombre completo
-STATE_MAPPING = {
+state_mapping = {
     'AG': 'Aguascalientes','BC': 'Baja California','BS': 'Baja California Sur',
     'CM': 'Campeche','CS': 'Chiapas','CH': 'Chihuahua','CO': 'Coahuila de Zaragoza',
     'CL': 'Colima','DF': 'Ciudad de México','DG': 'Durango','GT': 'Guanajuato',
@@ -35,17 +35,17 @@ def render(df_casos: pd.DataFrame,
     # Estilos globales
     load_styles()
 
-    # ---------------------------------------------------------
+    
     # TÍTULO
-    # ---------------------------------------------------------
+    
     st.markdown("<h1 style='color:white;'>Dashboard General</h1>", unsafe_allow_html=True)
 
     df = df_casos.copy()
     df_tx_local = df_tx.copy()
 
-    # ---------------------------------------------------------
+    
     # KPIs
-    # ---------------------------------------------------------
+    
     col1, col2, col3, col4 = st.columns(4, gap="small")
 
     total_casos = df.shape[0]
@@ -69,34 +69,34 @@ def render(df_casos: pd.DataFrame,
 
     divider()
 
-    # ---------------------------------------------------------
+    
     # LAYERS
     # Row 1 → Mapa | Ingresos
     # Row 2 → Tipificaciones | Ocupaciones
-    # ---------------------------------------------------------
+    # 
     row1_col1, row1_col2 = st.columns(2, gap="large")
     row2_col1, row2_col2 = st.columns(2, gap="large")
 
-    # ======================================================
-    # MAPA PLOTLY (% CHURN por estado)
-    # ======================================================
+    
+    # MAPA (% CHURN por estado)
+    
     with row1_col1:
-        st.subheader("Mapa de personas churn por estado (México)")
+        st.subheader(" % churn por estado (México)")
 
-        if "state" in df.columns and "churn" in df.columns:
-            df_estados = (
-                df[["id_user", "state", "churn"]]
+        if "state" in df_casos.columns:
+            df_usuarios = (
+                df_casos[["id_user", "state", "churn"]]
                 .dropna()
                 .drop_duplicates()
             )
         else:
-            st.warning("No existen columnas 'state' o 'churn'")
-            df_estados = None
+            st.warning("No se encontró la columna 'state' en df_casos.")
+            df_usuarios = None
 
-        if df_estados is not None and not df_estados.empty:
+        if df_usuarios is not None and not df_usuarios.empty:
 
-            resumen = (
-                df_estados
+            resumen_estados = (
+                df_usuarios
                 .groupby("state")
                 .agg(
                     total_usuarios=("id_user", "nunique"),
@@ -105,63 +105,65 @@ def render(df_casos: pd.DataFrame,
                 .reset_index()
             )
 
-            resumen["porcentaje_churn"] = (
-                resumen["churn_usuarios"] / resumen["total_usuarios"]
+            resumen_estados["porcentaje_churn"] = (
+                resumen_estados["churn_usuarios"] / resumen_estados["total_usuarios"]
             ).fillna(0) * 100
 
-            resumen["estado_full"] = resumen["state"].map(STATE_MAPPING)
+            resumen_estados["estado_full"] = resumen_estados["state"].map(state_mapping)
 
-            # Cargar geojson
-            try:
-                with open("data/mx.json", encoding="utf-8") as f:
-                    geo = json.load(f)
-            except:
-                st.error("No se encontró data/mx.json")
-                geo = None
+            with open("data/mx.json", encoding="utf-8") as f:
+                geo = json.load(f)
 
-            if geo is not None:
+            fig_map = px.choropleth(
+                resumen_estados,
+                geojson=geo,
+                locations="estado_full",
+                featureidkey="properties.name",
+                color="porcentaje_churn",
+                color_continuous_scale=[
+                    "#00121a", "#00334d", "#00557a", "#0077a6", "#0083b8", "#35a5d1"
+                ],
+                hover_name="estado_full",
+                hover_data={
+                    "total_usuarios": True,
+                    "churn_usuarios": True,
+                    "porcentaje_churn": ':.2f'
+                },
+                labels={"porcentaje_churn": "% churn"},
+            )
 
-                fig_map = px.choropleth(
-                    resumen,
-                    geojson=geo,
-                    locations="estado_full",
-                    featureidkey="properties.name",
-                    color="porcentaje_churn",
-                    color_continuous_scale="Reds",
-                    hover_name="estado_full",
-                    hover_data={
-                        "total_usuarios": True,
-                        "churn_usuarios": True,
-                        "porcentaje_churn": ':.2f'
-                    },
-                )
+            # BORDES BLANCOS COMO TU GRÁFICA ORIGINAL
+            fig_map.update_traces(marker_line_width=0.8, marker_line_color="white")
 
-                fig_map.update_geos(fitbounds="locations", visible=False)
-                fig_map.update_layout(
-                    margin=dict(l=0, r=0, t=0, b=0),
-                    paper_bgcolor=BG,
-                    plot_bgcolor=BG,
-                    font_color="white",
+            # FONDO OSCURO REAL
+            fig_map.update_layout(
+                margin=dict(l=0, r=0, t=0, b=0),
+                paper_bgcolor="#06141f",    # Fondo del dashboard
+                plot_bgcolor="#06141f",
+                geo=dict(bgcolor="#06141f"),
+                font=dict(color="white"),
+                coloraxis_colorbar=dict(
+                    tickfont=dict(color="white"),
+                    title=dict(font=dict(color="white"))
+                ),
+            )
 
-                    # FIX FINAL AQUÍ 👇
-                    coloraxis_colorbar=dict(
-                        title=dict(
-                            text="% churn",
-                            font=dict(color="white")
-                        ),
-                        tickfont=dict(color="white")
-                    ),
-                )
+            # Mantener el mapa centrado y visible
+            fig_map.update_geos(
+                fitbounds="locations",
+                visible=False,
+                bgcolor="#06141f"
+            )
 
-                st.plotly_chart(fig_map, use_container_width=True)
+            st.plotly_chart(fig_map, use_container_width=True)
 
         else:
-            st.info("No hay datos suficientes para mostrar el mapa con estos filtros.")
+            st.info("No hay usuarios suficientes para mostrar el mapa con estos filtros.")
 
-    # ======================================================
+    
     # INGRESOS
     # df_semana / df_mes TURBO
-    # ======================================================
+    
     with row1_col2:
         st.subheader("Ingresos en el tiempo")
 
@@ -209,9 +211,9 @@ def render(df_casos: pd.DataFrame,
             fig.update_yaxes(color="white", showgrid=False)
             st.plotly_chart(fig, use_container_width=True)
 
-    # ======================================================
+    
     # TIPIFICACIONES churn
-    # ======================================================
+    
     with row2_col1:
         st.subheader("Tipificaciones más comunes (solo usuarios churn)")
 
@@ -250,9 +252,9 @@ def render(df_casos: pd.DataFrame,
 
             st.plotly_chart(fig_tips, use_container_width=True)
 
-    # ======================================================
+    
     # OCUPACIONES churn
-    # ======================================================
+    
     with row2_col2:
         st.subheader("Ocupaciones más comunes (solo usuarios churn)")
 

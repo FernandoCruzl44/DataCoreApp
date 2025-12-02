@@ -11,7 +11,7 @@ from datetime import datetime
 PROMOTIONS = {
     'alto': {
         'name': "Riesgo Alto",
-        'perdida_dummy': 1200000,
+        # Eliminamos 'perdida_dummy' porque ahora se calcula real
         'msg_general': "**Mensaje sugerido (Riesgo Alto):** Hola 👋 Notamos menos actividad reciente. Queremos asegurarnos de que aprovechas todos los beneficios. 💙",
         'promo_general': "**Promo (Riesgo Alto):** 🎉 Recibe **$150 MXN de cashback** al realizar 3 pagos de servicios esta semana.",
         'ocupacion': {
@@ -23,7 +23,6 @@ PROMOTIONS = {
     },
     'medio': {
         'name': "Riesgo Medio",
-        'perdida_dummy': 450000,
         'msg_general': "**Mensaje sugerido (Riesgo Medio):** Hola 👋 Tu actividad ha bajado un poco. Recuerda nuestras herramientas financieras.",
         'promo_general': "**Promo (Riesgo Medio):** Bono del 1% por cada transferencia SPEI (max $50).",
         'ocupacion': {
@@ -35,7 +34,6 @@ PROMOTIONS = {
     },
     'bajo': {
         'name': "Riesgo Estable",
-        'perdida_dummy': 50000,
         'msg_general': "**Mensaje sugerido (Riesgo Estable):** ¡Gracias por seguir con nosotros! 💙",
         'promo_general': "**Promo (Riesgo Estable):** 🎁 $20 MXN cashback al domiciliar un pago nuevo.",
         'ocupacion': {
@@ -67,21 +65,22 @@ def load_model(path='models/final_xgb_model.pkl'):
 def predict_churn_from_csv(df_input, model):
     """
     Aplica el preprocesamiento exacto (One-Hot) y predice.
+    Ignora columnas extra como 'ocupacion' para la predicción, pero las conserva en el resultado.
     """
-    # 1. Variables definidas por ti
+    # 1. Variables definidas por ti para el MODELO
     num_vars_importantes = ['total_trx', 'calls_per_month', 'avg_amount', 'age']
     cat_vars_importantes = ['tendencia_uso', 'tipificacion_mas_comun', 'qualification', 'category_total_amount']
     
-    # 2. Verificar columnas necesarias
-    subset_vars = num_vars_importantes + cat_vars_importantes
-    missing_cols = [col for col in subset_vars if col not in df_input.columns]
+    # 2. Verificar columnas necesarias (NO verificamos ocupacion aquí porque no es para el modelo)
+    subset_vars_model = num_vars_importantes + cat_vars_importantes
+    missing_cols = [col for col in subset_vars_model if col not in df_input.columns]
     
     if missing_cols:
-        st.error(f"❌ El archivo CSV no tiene estas columnas requeridas: {missing_cols}")
+        st.error(f" El archivo CSV no tiene estas columnas requeridas para el modelo: {missing_cols}")
         return None
 
-    # 3. Preparar subset
-    df_subset = df_input[subset_vars].copy()
+    # 3. Preparar subset SOLO para el modelo
+    df_subset = df_input[subset_vars_model].copy()
     
     # Separar para procesar
     X_num = df_subset[num_vars_importantes]
@@ -93,23 +92,19 @@ def predict_churn_from_csv(df_input, model):
     # Unir numéricas y codificadas
     X_final = pd.concat([X_num, X_encoded], axis=1)
 
-    # 5. ALINEACIÓN DE COLUMNAS (Crucial para que el modelo no falle)
-    # Obtenemos las columnas que el modelo espera
+    # 5. ALINEACIÓN DE COLUMNAS
     if hasattr(model, 'feature_names_in_'):
         model_cols = model.feature_names_in_
     else:
-        # Si el modelo es muy viejo y no guarda nombres, usamos las actuales (riesgoso pero necesario fallback)
         model_cols = X_final.columns
 
-    # Reindexamos: Esto agrega columnas faltantes con 0 y quita las que sobran
     X_final = X_final.reindex(columns=model_cols, fill_value=0)
 
     # 6. Predecir
     try:
-        # Probabilidad de clase 1 (Churn)
         probs = model.predict_proba(X_final)[:, 1]
         
-        # Preparamos el DF de salida
+        # Preparamos el DF de salida (Usamos df_input original para conservar 'ocupacion' y 'id_user')
         df_result = df_input.copy()
         df_result['prob_churn'] = probs
         return df_result
@@ -134,7 +129,7 @@ def render(df_default=None):
     st.title("Predicciones de Riesgo (IA)")
     
     # ----------------------------------------------------
-    # CSS: COLORES DE SEMÁFORO (Tus estilos personalizados)
+    # CSS: COLORES DE SEMÁFORO
     # ----------------------------------------------------
     st.markdown("""
         <style>
@@ -193,29 +188,25 @@ def render(df_default=None):
     # ----------------------------------------------------
     st.markdown("---")
     st.caption("Cargar nuevos datos para predecir:")
-    uploaded_file = st.file_uploader("Sube un CSV (con columnas requeridas)", type=['csv'])
+    uploaded_file = st.file_uploader("Sube un CSV (incluyendo columnas 'ocupacion' e 'id_user')", type=['csv'])
 
-    # Lógica de Selección de Datos (Default vs Uploaded)
+    # Lógica de Selección de Datos
     df_risk_to_use = None
-    
-    # Intenta cargar el modelo
     model = load_model() 
 
     if uploaded_file is not None:
         if model is None:
-            st.error("⚠️ No se encontró el modelo 'models/modelo_churn.pkl'.")
+            st.error(" No se encontró el modelo 'models/modelo_churn.pkl'.")
         else:
             with st.spinner('Procesando datos y prediciendo...'):
                 df_input = pd.read_csv(uploaded_file)
                 df_risk_to_use = predict_churn_from_csv(df_input, model)
                 if df_risk_to_use is not None:
-                    st.success(f"✅ Predicción exitosa para {len(df_risk_to_use)} usuarios.")
+                    st.success(f" Predicción exitosa para {len(df_risk_to_use)} usuarios.")
     
     elif df_default is not None:
-        # Usamos los datos precargados si no suben nada
         df_risk_to_use = df_default
     
-    # Si no hay datos validos, terminamos aquí
     if df_risk_to_use is None:
         return
 
@@ -246,48 +237,71 @@ def render(df_default=None):
         st.markdown("---")
         st.header(config['name']) 
         
-        # Métricas
+        # --- CÁLCULO DE MÉTRICAS (Dinámico) ---
         percent_selected = (num_selected / total_users * 100) if total_users > 0 else 0
+        
+        # 2. CÁLCULO REAL DE PÉRDIDAS POTENCIALES
+        # Sumamos el 'avg_amount' de todos los usuarios en este grupo de riesgo
+        if 'avg_amount' in df_selected.columns:
+            perdida_real = df_selected['avg_amount'].sum()
+        else:
+            perdida_real = 0
+
         col_met1, col_met2, _, _ = st.columns([1, 1, 1, 1])
         with col_met1:
             st.metric("Usuarios en Grupo", f"{percent_selected:.1f}%")
         with col_met2:
-            st.metric("Pérdidas Potenciales", f"${config['perdida_dummy']:,.0f} MXN")
+            st.metric("Pérdidas Potenciales", f"${perdida_real:,.0f} MXN")
 
         st.markdown("---")
 
         col_tabla, col_acciones = st.columns([3, 2])
 
-        # COLUMNA IZQUIERDA: TABLA
+        # COLUMNA IZQUIERDA: TABLA EDITABLE CON SELECTORES
         with col_tabla:
-            st.subheader("Detalle de Usuarios")
+            st.subheader("Seleccionar Usuarios para Contacto")
             
-            # Columnas a mostrar (Si existen en el DF)
-            cols_posibles = ["id_user", "avg_amount", "calls_per_month", "prob_churn"]
+            # Definir columnas a mostrar
+            # Nota: 'ocupacion' se agrega aquí.
+            cols_posibles = ["id_user", "ocupacion", "avg_amount", "calls_per_month", "prob_churn"]
             cols_validas = [c for c in cols_posibles if c in df_selected.columns]
             
-            df_display = df_selected[cols_validas].sort_values("prob_churn", ascending=False).head(10)
-            
-            # Renombrar para visualización
-            df_viz = df_display.rename(columns={
-                "id_user": "User ID",
-                "avg_amount": "Avg Amount",
-                "calls_per_month": "Calls/Month",
-                "prob_churn": "Predicción"
-            })
-            
-            st.dataframe(
-                df_viz, 
-                use_container_width=True,
-                column_config={
-                    "Predicción": st.column_config.NumberColumn("Predicción Churn", format="%.1f%%"),
-                    "Avg Amount": st.column_config.NumberColumn("Monto Promedio", format="$%.2f")
-                }
-            )
+            # Top 50 para visualización en la tabla (o todo si prefieres)
+            df_display = df_selected[cols_validas].sort_values("prob_churn", ascending=False).head(50).copy()
 
-            # Botón descarga
+            if "prob_churn" in df_display.columns:
+                df_display["prob_churn"] = df_display["prob_churn"] * 100
+            
+            # Agregar columna para Checkboxes (Inicializada en False)
+            df_display.insert(0, "Seleccionar", False)
+
+            # Renombrar para visualización bonita
+            col_config = {
+                "Seleccionar": st.column_config.CheckboxColumn(
+                    "Enviar",
+                    help="Selecciona para enviar promoción",
+                    default=False,
+                ),
+                "id_user": st.column_config.TextColumn("User ID"),
+                "ocupacion": st.column_config.TextColumn("Ocupación"),
+                "avg_amount": st.column_config.NumberColumn("Monto Promedio", format="$%.2f"),
+                "calls_per_month": st.column_config.NumberColumn("Calls/Month"),
+                "prob_churn": st.column_config.NumberColumn("Predicción Churn", format="%.1f%%"),
+            }
+
+            # 3. TABLA CON CHECKBOXES (st.data_editor)
+            edited_df = st.data_editor(
+                df_display,
+                column_config=col_config,
+                hide_index=True,
+                use_container_width=True,
+                disabled=[c for c in df_display.columns if c != "Seleccionar"], # Solo permite editar el checkbox
+                key=f"editor_{risk_key}"
+            )
+            
+            # Botón para descargar lo filtrado
             st.download_button(
-                label=f"📥 Descargar CSV ({config['name']})",
+                label=f" Descargar CSV ({config['name']})",
                 data=convert_df_to_csv(df_selected),
                 file_name=f"usuarios_{risk_key}.csv",
                 mime='text/csv',
@@ -299,6 +313,20 @@ def render(df_default=None):
         with col_acciones:
             st.markdown("### Acciones Sugeridas")
             
+            # Botón Especial para los seleccionados en la tabla
+            usuarios_seleccionados = edited_df[edited_df["Seleccionar"] == True]
+            count_seleccionados = len(usuarios_seleccionados)
+            
+            if st.button(f" Enviar Promo a Seleccionados ({count_seleccionados})", type="primary", use_container_width=True, key=f"send_bulk_{risk_key}"):
+                if count_seleccionados > 0:
+                    st.success(f" ¡Promoción enviada exitosamente a {count_seleccionados} usuarios!")
+                    # Aquí podrías agregar lógica para guardar quiénes fueron contactados
+                else:
+                    st.warning(" Selecciona al menos un usuario en la tabla de la izquierda.")
+
+            st.markdown("---")
+            st.write("**Acciones Generales:**")
+            
             if st.button("Mensaje sugerido", key=f"msg_{risk_key}", use_container_width=True):
                 st.info(config['msg_general'])
 
@@ -307,7 +335,7 @@ def render(df_default=None):
             
             st.markdown("---")
 
-            if st.button("Promo por Ocupación", key=f"ocup_{risk_key}", use_container_width=True):
+            if st.button("Promo por Ocupación (Ver Detalle)", key=f"ocup_{risk_key}", use_container_width=True):
                 st.session_state.show_promo_selection = not st.session_state.show_promo_selection
             
             if st.session_state.show_promo_selection:

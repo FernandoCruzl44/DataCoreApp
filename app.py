@@ -5,7 +5,7 @@ import streamlit as st
 import time
 
 
-@st.cache_data
+@st.cache_resource
 def load_data():
     print("\n====== [LOAD_DATA TURBO] INICIO ======")
     t0 = time.perf_counter()
@@ -38,8 +38,8 @@ def aplicar_filtros(df_casos, df_tx, filtros):
     qualif = filtros.get("qualification")
     tendencia = filtros.get("tendencia_uso")
 
-    df_c = df_casos.copy()
-    df_t = df_tx.copy()
+    df_c = df_casos
+    df_t = df_tx
 
     # Año
     if año is not None:
@@ -70,34 +70,35 @@ def aplicar_filtros(df_casos, df_tx, filtros):
 def main():
     base_layout()
 
+    t_total0 = time.perf_counter()
+
     t0 = time.perf_counter()
     df_casos, df_tx, df_tx_raw, df_risk, df_master, df_semana, df_mes = load_data()
-    print(f"[MAIN TURBO] Data cargada total en {time.perf_counter() - t0:.2f} s")
+    print(f"[MAIN TURBO] load_data: {time.perf_counter() - t0:.2f} s")
 
-    t_sb0 = time.perf_counter()
+    t1 = time.perf_counter()
     page, filtros = general_sidebar(df_casos, df_tx)
-    print(f"[MAIN TURBO] Sidebar generado en {time.perf_counter() - t_sb0:.2f} s")
+    print(f"[MAIN TURBO] sidebar: {time.perf_counter() - t1:.2f} s")
 
     if page == "Machine Learning":
         ml.render()
+        print(f"[MAIN TURBO] TOTAL (ML): {time.perf_counter() - t_total0:.2f} s\n")
         return
 
-    # Aplicar filtros solo una vez
-    t_f0 = time.perf_counter()
+    t2 = time.perf_counter()
     df_casos_f, df_tx_f = aplicar_filtros(df_casos, df_tx, filtros)
-    print(f"[MAIN TURBO] Filtros aplicados en {time.perf_counter() - t_f0:.2f} s")
+    print(f"[MAIN TURBO] filtros: {time.perf_counter() - t2:.2f} s")
 
+    t3 = time.perf_counter()
     if page == "General":
         general2.render(df_casos_f, df_tx_f, filtros, df_semana, df_mes)
-
     elif page == "Predicciones":
-        # Pasamos df_risk al argumento 'df_default'. 
-        # Esto permite que la función sepa que son datos de respaldo y no datos nuevos.
         predicciones.render(df_default=df_risk)
-
     elif page == "Finanzas":
-        df_casos_f, df_tx_f = aplicar_filtros(df_casos, df_tx, filtros)
         finanzas.render(df_casos_f, df_tx_f, df_master)
+
+    print(f"[MAIN TURBO] render {page}: {time.perf_counter() - t3:.2f} s")
+    print(f"[MAIN TURBO] TOTAL: {time.perf_counter() - t_total0:.2f} s\n")
 
 
 if __name__ == "__main__":
