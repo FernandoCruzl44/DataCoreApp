@@ -89,7 +89,7 @@ def render(df_casos, df_tx, df_master):
         t0 = time.perf_counter()
 
         df_tx_merged = df_tx.merge(
-            df_master[["id_user", "occupation_category"]],
+            df_master[["id_user", "occupation_category", "state"]],
             on="id_user",
             how="left"
         )
@@ -136,10 +136,9 @@ def render(df_casos, df_tx, df_master):
 
 
     t0 = time.perf_counter()
-    df_tx_master = df_tx.merge(df_master[["id_user", "state"]], on="id_user", how="left")
 
     revenue_state = (
-        df_tx_master
+        df_tx_merged
         .groupby("state")["amount"]
         .sum()
         .reset_index()

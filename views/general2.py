@@ -52,8 +52,19 @@ def render(df_casos: pd.DataFrame,
     total_tx = int(df_tx_local['n_tx'].sum()) if 'n_tx' in df_tx_local.columns else 0
     ingresos = df_tx_local['amount'].sum() if 'amount' in df_tx_local.columns else 0
 
-    churn_count = df[df.get('churn', 0) == 1].shape[0] if 'churn' in df.columns else 0
-    churn_rate = 0 if total_casos == 0 else round((churn_count / total_casos) * 100, 2)
+    if "id_user" in df.columns and "churn" in df.columns:
+        total_users = df["id_user"].nunique()
+
+        churn_users = (
+            df.loc[df["churn"] == 1, "id_user"]
+            .dropna()
+            .nunique()
+        )
+    else:
+        total_users = 0
+        churn_users = 0
+
+    churn_rate = 0 if total_users == 0 else round((churn_users / total_users) * 100, 2)
 
     with col1:
         kpi_card("Total de Casos", f"{total_casos:,}", meta_text="Meta: 5,000")
@@ -155,7 +166,7 @@ def render(df_casos: pd.DataFrame,
                 bgcolor="#06141f"
             )
 
-            st.plotly_chart(fig_map, use_container_width=True)
+            st.plotly_chart(fig_map, width='stretch')
 
         else:
             st.info("No hay usuarios suficientes para mostrar el mapa con estos filtros.")
