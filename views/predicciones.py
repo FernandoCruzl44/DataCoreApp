@@ -11,7 +11,6 @@ from datetime import datetime
 PROMOTIONS = {
     'alto': {
         'name': "Riesgo Alto",
-        # Eliminamos 'perdida_dummy' porque ahora se calcula real
         'msg_general': "**Mensaje sugerido (Riesgo Alto):** Hola 👋 Notamos menos actividad reciente. Queremos asegurarnos de que aprovechas todos los beneficios. 💙",
         'promo_general': "**Promo (Riesgo Alto):** 🎉 Recibe **$150 MXN de cashback** al realizar 3 pagos de servicios esta semana.",
         'ocupacion': {
@@ -76,7 +75,7 @@ def predict_churn_from_csv(df_input, model):
     missing_cols = [col for col in subset_vars_model if col not in df_input.columns]
     
     if missing_cols:
-        st.error(f" El archivo CSV no tiene estas columnas requeridas para el modelo: {missing_cols}")
+        st.error(f" El dataframe no tiene estas columnas requeridas para el modelo: {missing_cols}")
         return None
 
     # 3. Preparar subset SOLO para el modelo
@@ -184,29 +183,38 @@ def render(df_default=None):
             st.session_state.show_promo_selection = False 
 
     # ----------------------------------------------------
-    # CARGA DE DATOS Y PREDICCIÓN
+    # CARGA DE DATOS Y LÓGICA DE PREDICCIÓN
     # ----------------------------------------------------
     st.markdown("---")
     st.caption("Cargar nuevos datos para predecir:")
     uploaded_file = st.file_uploader("Sube un CSV (incluyendo columnas 'ocupacion' e 'id_user')", type=['csv'])
 
-    # Lógica de Selección de Datos
     df_risk_to_use = None
     model = load_model() 
 
+    # Validación de Modelo
+    if model is None:
+        st.error(" No se encontró el modelo 'models/modelo_churn.pkl'.")
+        return # Si no hay modelo, no podemos hacer nada
+
+    # CASO 1: Usuario sube archivo nuevo
     if uploaded_file is not None:
-        if model is None:
-            st.error(" No se encontró el modelo 'models/modelo_churn.pkl'.")
-        else:
-            with st.spinner('Procesando datos y prediciendo...'):
-                df_input = pd.read_csv(uploaded_file)
-                df_risk_to_use = predict_churn_from_csv(df_input, model)
-                if df_risk_to_use is not None:
-                    st.success(f" Predicción exitosa para {len(df_risk_to_use)} usuarios.")
+        with st.spinner('Procesando datos subidos y prediciendo...'):
+            df_input = pd.read_csv(uploaded_file)
+            df_risk_to_use = predict_churn_from_csv(df_input, model)
+            if df_risk_to_use is not None:
+                st.success(f" Predicción exitosa para {len(df_risk_to_use)} usuarios (Datos Nuevos).")
     
+    # CASO 2: Usuario NO sube archivo, usamos el Default (Pero le aplicamos ML)
     elif df_default is not None:
-        df_risk_to_use = df_default
+        # Aquí es donde ocurre la magia: Usamos el dataframe por defecto como input para el modelo
+        # No usamos spinner aquí para que la carga inicial sea fluida, o usamos uno muy rápido.
+        df_risk_to_use = predict_churn_from_csv(df_default, model)
+        
+        if df_risk_to_use is not None:
+            st.info(f"ℹ Mostrando predicciones calculadas sobre el set de datos base ({len(df_risk_to_use)} usuarios). Sube un archivo para analizar otros.")
     
+    # Si después de todo no hay datos procesados, salimos
     if df_risk_to_use is None:
         return
 
@@ -214,7 +222,7 @@ def render(df_default=None):
     # VISUALIZACIÓN DE RESULTADOS
     # ----------------------------------------------------
     
-    # Filtrar por grupos usando la columna 'prob_churn'
+    # Filtrar por grupos usando la columna 'prob_churn' calculada
     high_threshold = 0.66
     medium_low = 0.33
     
@@ -240,8 +248,7 @@ def render(df_default=None):
         # --- CÁLCULO DE MÉTRICAS (Dinámico) ---
         percent_selected = (num_selected / total_users * 100) if total_users > 0 else 0
         
-        # 2. CÁLCULO REAL DE PÉRDIDAS POTENCIALES
-        # Sumamos el 'avg_amount' de todos los usuarios en este grupo de riesgo
+        # CÁLCULO REAL DE PÉRDIDAS POTENCIALES
         if 'avg_amount' in df_selected.columns:
             perdida_real = df_selected['avg_amount'].sum()
         else:
@@ -262,13 +269,13 @@ def render(df_default=None):
             st.subheader("Seleccionar Usuarios para Contacto")
             
             # Definir columnas a mostrar
-            # Nota: 'ocupacion' se agrega aquí.
             cols_posibles = ["id_user", "ocupacion", "avg_amount", "calls_per_month", "prob_churn"]
             cols_validas = [c for c in cols_posibles if c in df_selected.columns]
             
-            # Top 50 para visualización en la tabla (o todo si prefieres)
+            # Top 50 para visualización en la tabla
             df_display = df_selected[cols_validas].sort_values("prob_churn", ascending=False).head(50).copy()
-
+            
+            # AJUSTE: Convertir probabilidad (0.66) a porcentaje real (66.0)
             if "prob_churn" in df_display.columns:
                 df_display["prob_churn"] = df_display["prob_churn"] * 100
             
@@ -295,7 +302,7 @@ def render(df_default=None):
                 column_config=col_config,
                 hide_index=True,
                 use_container_width=True,
-                disabled=[c for c in df_display.columns if c != "Seleccionar"], # Solo permite editar el checkbox
+                disabled=[c for c in df_display.columns if c != "Seleccionar"], 
                 key=f"editor_{risk_key}"
             )
             
@@ -320,7 +327,6 @@ def render(df_default=None):
             if st.button(f" Enviar Promo a Seleccionados ({count_seleccionados})", type="primary", use_container_width=True, key=f"send_bulk_{risk_key}"):
                 if count_seleccionados > 0:
                     st.success(f" ¡Promoción enviada exitosamente a {count_seleccionados} usuarios!")
-                    # Aquí podrías agregar lógica para guardar quiénes fueron contactados
                 else:
                     st.warning(" Selecciona al menos un usuario en la tabla de la izquierda.")
 
