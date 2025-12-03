@@ -9,10 +9,10 @@ from components.layout2 import kpi_card, divider, load_styles
 
 def render():
 
-    # === TÍTULO PRINCIPAL (igual que el general) ===
+    # TÍTULO PRINCIPAL (igual que el general) 
     st.markdown("<h1 style='color:white;'>ML Model Performance Indicators</h1>", unsafe_allow_html=True)
 
-    # ================= KPIs =================
+    # KPIs
     kpi_container = st.container()
     with kpi_container:
         col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -56,7 +56,7 @@ def render():
 
         fig = go.Figure()
 
-        # --- F1 Score ---
+        # F1 Score
         fig.add_trace(go.Scatter(
             x=thresholds, y=f1_scores,
             mode="lines",
@@ -65,7 +65,7 @@ def render():
             hovertemplate="Threshold: %{x:.4f}<br>F1-score: %{y:.4f}<extra></extra>"
         ))
 
-        # --- Recall ---
+        # Recall
         fig.add_trace(go.Scatter(
             x=thresholds, y=recall,
             mode="lines",
@@ -74,7 +74,7 @@ def render():
             hovertemplate="Threshold: %{x:.4f}<br>Recall: %{y:.4f}<extra></extra>"
         ))
 
-        # --- Precision ---
+        # Precision
         fig.add_trace(go.Scatter(
             x=thresholds, y=precision,
             mode="lines",

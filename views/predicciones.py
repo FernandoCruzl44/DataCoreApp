@@ -4,9 +4,7 @@ import pickle
 import numpy as np
 from datetime import datetime
 
-# ======================================================================
 # 1. CONFIGURACIÓN Y DATOS ESTÁTICOS
-# ======================================================================
 
 PROMOTIONS = {
     'alto': {
@@ -48,9 +46,7 @@ PROMOTIONS = {
 def convert_df_to_csv(df):
     return df.to_csv(index=False).encode('utf-8')
 
-# ======================================================================
 # 2. LÓGICA DE MACHINE LEARNING (Carga y Predicción)
-# ======================================================================
 
 @st.cache_resource
 def load_model(path='models/final_xgb_model.pkl'):
@@ -112,9 +108,7 @@ def predict_churn_from_csv(df_input, model):
         st.error(f"Error al predecir: {e}")
         return None
 
-# ======================================================================
 # 3. FUNCIÓN RENDER PRINCIPAL
-# ======================================================================
 
 def render(df_default=None):
     
@@ -128,9 +122,7 @@ def render(df_default=None):
 
     st.title("Predicciones de Riesgo (IA)")
     
-    # ----------------------------------------------------
     # CSS: COLORES DE SEMÁFORO
-    # ----------------------------------------------------
     st.markdown("""
         <style>
         /* Riesgo Alto: Rojo */
@@ -164,9 +156,7 @@ def render(df_default=None):
         </style>
         """, unsafe_allow_html=True)
 
-    # ----------------------------------------------------
     # BOTONES DE GRUPO
-    # ----------------------------------------------------
     st.markdown("Selecciona un grupo de riesgo:")
     col1, col2, col3 = st.columns(3)
 
@@ -183,9 +173,7 @@ def render(df_default=None):
             st.session_state.selected_risk = 'bajo'
             st.session_state.show_promo_selection = False 
 
-    # ----------------------------------------------------
     # CARGA DE DATOS Y PREDICCIÓN
-    # ----------------------------------------------------
     st.markdown("---")
     st.caption("Cargar nuevos datos para predecir:")
     uploaded_file = st.file_uploader("Sube un CSV (incluyendo columnas 'ocupacion' e 'id_user')", type=['csv'])
@@ -210,9 +198,8 @@ def render(df_default=None):
     if df_risk_to_use is None:
         return
 
-    # ----------------------------------------------------
     # VISUALIZACIÓN DE RESULTADOS
-    # ----------------------------------------------------
+    
     
     # Filtrar por grupos usando la columna 'prob_churn'
     high_threshold = 0.66

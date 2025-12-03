@@ -47,9 +47,7 @@ def render(df_casos, df_tx, df_master):
 
     st.markdown("<h1 style='color:white;'>Dashboard Finanzas</h1>", unsafe_allow_html=True)
 
-    # ============================
     # LAYOUT SUPERIOR
-    # ============================
 
     col_kpi, col_occ = st.columns([1.1, 2])
 
@@ -79,9 +77,7 @@ def render(df_casos, df_tx, df_master):
         )
 
 
-    # ============================
     # GRAFICA: INGRESO POR OCUPACION
-    # ============================
 
     with col_occ:
         st.subheader("Ingreso Promedio por Ocupación")
@@ -117,9 +113,7 @@ def render(df_casos, df_tx, df_master):
 
     st.write("")
 
-    # ============================
     # MAPA: REVENUE POR ESTADO
-    # ============================
 
     st.subheader("Revenue por Estado")
 
