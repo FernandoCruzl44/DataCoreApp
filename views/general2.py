@@ -40,8 +40,8 @@ def render(df_casos: pd.DataFrame,
     
     st.markdown("<h1 style='color:white;'>Dashboard General</h1>", unsafe_allow_html=True)
 
-    df = df_casos.copy()
-    df_tx_local = df_tx.copy()
+    df = df_casos
+    df_tx_local = df_tx
 
     
     # KPIs
@@ -220,7 +220,7 @@ def render(df_casos: pd.DataFrame,
             )
             fig.update_xaxes(color="white", showgrid=False)
             fig.update_yaxes(color="white", showgrid=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
     
     # TIPIFICACIONES churn

@@ -11,85 +11,84 @@ PRIMARY = "#0083b8"
 BG = "#06141f"
 
 
-
-
 def render(df_casos, df_tx, df_master):
     load_styles()
 
+    # estilos visuales para métricas
     st.markdown("""
         <style>
-            /* Agranda el número principal del st.metric */
             [data-testid="stMetricValue"] {
                 font-size: 42px !important;
                 font-weight: 800 !important;
             }
 
-            /* Agranda el label */
             [data-testid="stMetricLabel"] {
                 font-size: 16px !important;
             }
 
-            /* Agranda el delta */
             [data-testid="stMetricDelta"] {
                 font-size: 18px !important;
             }
                     
-            /* Tarjetas para métricas (estilo similar a kpi-card) */
             [data-testid="stMetric"] {
-            background-color: #0d2536;
-            padding: 16px 20px;
-            border-radius: 8px;
-            border: 1px solid #1b3b52;
-            width: 100%;
-        }
+                background-color: #0d2536;
+                padding: 16px 20px;
+                border-radius: 8px;
+                border: 1px solid #1b3b52;
+                width: 100%;
+            }
         </style>
         """, unsafe_allow_html=True)
 
-    st.markdown("<h1 style='color:white;'>Dashboard Finanzas</h1>", unsafe_allow_html=True)
+    # título principal
+    st.markdown("<h1 style='color:white;'>Finanzas</h1>", unsafe_allow_html=True)
 
-    # LAYOUT SUPERIOR
-
+    # sección superior
     col_kpi, col_occ = st.columns([1.1, 2])
 
     with col_kpi:
 
-        st.subheader("Ingreso vs Costo de Oportunidad")
+        st.subheader("Ingreso vs costo de oportunidad")
 
+        # ingreso total calculado
         ingreso_total = df_tx['amount'].sum()
+
+        # cálculo del costo de oportunidad
         usuarios_churn = df_casos[df_casos['churn'] == 1]['id_user'].nunique()
         gasto_promedio_usuario = df_tx.groupby('id_user')['amount'].sum().mean()
         perdida_total = usuarios_churn * gasto_promedio_usuario
 
+        # kpi de ingreso con delta dummy
         st.metric(
             label="Ingreso total",
             value=f"${ingreso_total:,.0f}",
-            delta=f"+${ingreso_total:,.0f}"
+            delta="+$12,450"     # valor dummy
         )
 
-        # Espacio entre KPIs (opcional)
+        # espacio estético
         st.write("")
 
-        # KPI 2 (va abajo)
+        # kpi de costo con delta dummy
         st.metric(
-            label="Costo de Oportunidad",
+            label="Costo de oportunidad",
             value=f"${perdida_total:,.0f}",
-            delta=f"-${perdida_total:,.0f}"
+            delta="-$8,320"      # valor dummy
         )
 
-
-    # GRAFICA: INGRESO POR OCUPACION
-
+    # gráfica: ingreso promedio por ocupación
     with col_occ:
-        st.subheader("Ingreso Promedio por Ocupación")
+        st.subheader("Ingreso promedio por ocupación")
 
         t0 = time.perf_counter()
 
+        # merge para traer ocupación
         df_tx_merged = df_tx.merge(
             df_master[["id_user", "occupation_category", "state"]],
             on="id_user",
             how="left"
         )
 
+        # cálculo del top 10
         ingreso_occ = (
             df_tx_merged
             .groupby("occupation_category")["amount"]
@@ -100,8 +99,9 @@ def render(df_casos, df_tx, df_master):
         )
 
         t1 = time.perf_counter()
-        print(f"[FINANZAS TURBO] ingreso por ocupacion: {t1 - t0:.4f} s")
+        print(f"[finanzas] ingreso por ocupacion tardó: {t1 - t0:.4f} s")
 
+        # gráfica
         fig_occ = px.bar(
             ingreso_occ,
             x="occupation_category",
@@ -113,10 +113,10 @@ def render(df_casos, df_tx, df_master):
 
     st.write("")
 
-    # MAPA: REVENUE POR ESTADO
+    # mapa: revenue por estado
+    st.subheader("Revenue por estado")
 
-    st.subheader("Revenue por Estado")
-
+    # mapeo de abreviaturas a nombres
     state_mapping = {
         'AG': 'Aguascalientes','BC': 'Baja California','BS': 'Baja California Sur',
         'CM': 'Campeche','CS': 'Chiapas','CH': 'Chihuahua','CO': 'Coahuila de Zaragoza',
@@ -128,9 +128,9 @@ def render(df_casos, df_tx, df_master):
         'TL': 'Tlaxcala','VE': 'Veracruz de Ignacio de la Llave','YU': 'Yucatán','ZA': 'Zacatecas'
     }
 
-
     t0 = time.perf_counter()
 
+    # agrupar revenue por estado
     revenue_state = (
         df_tx_merged
         .groupby("state")["amount"]
@@ -139,14 +139,16 @@ def render(df_casos, df_tx, df_master):
     )
 
     t1 = time.perf_counter()
-    print(f"[FINANZAS TURBO] revenue por estado: {t1 - t0:.4f} s")
+    print(f"[finanzas] revenue por estado tardó: {t1 - t0:.4f} s")
 
-
+    # asignar nombre completo
     revenue_state["estado_full"] = revenue_state["state"].map(state_mapping)
 
+    # cargar geojson
     with open("data/mx.json", encoding="utf-8") as f:
         geo = json.load(f)
 
+    # crear mapa
     fig_map = px.choropleth(
         revenue_state,
         geojson=geo,
@@ -160,16 +162,16 @@ def render(df_casos, df_tx, df_master):
         labels={"amount": "Revenue"}
     )
 
-    # 1) Bordes blancos entre estados (igual que en General)
+    # bordes blancos
     fig_map.update_traces(marker_line_width=0.8, marker_line_color="white")
 
-    # 2) Fondo oscuro en todo y texto blanco
+    # estilos oscuros
     fig_map.update_layout(
         height=430,
         margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor=BG,       # fondo del “lienzo”
-        plot_bgcolor=BG,        # fondo del gráfico
-        geo=dict(bgcolor=BG),   # fondo detrás del mapa
+        paper_bgcolor=BG,
+        plot_bgcolor=BG,
+        geo=dict(bgcolor=BG),
         font=dict(color="white"),
         coloraxis_colorbar=dict(
             tickfont=dict(color="white"),
@@ -177,7 +179,7 @@ def render(df_casos, df_tx, df_master):
         ),
     )
 
-    # 3) Centrar mapa y ocultar eje/contornos extra
+    # centrado y limpieza
     fig_map.update_geos(
         fitbounds="locations",
         visible=False,
