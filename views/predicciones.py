@@ -62,11 +62,11 @@ def predict_churn_from_csv(df_input, model):
     Aplica el preprocesamiento exacto (One-Hot) y predice.
     Ignora columnas extra como 'ocupacion' para la predicción, pero las conserva en el resultado.
     """
-    # 1. Variables definidas por ti para el MODELO
+    # 1. Variables definidas para el MODELO
     num_vars_importantes = ['total_trx', 'calls_per_month', 'avg_amount', 'age']
     cat_vars_importantes = ['tendencia_uso', 'tipificacion_mas_comun', 'qualification', 'category_total_amount']
     
-    # 2. Verificar columnas necesarias (NO verificamos ocupacion aquí porque no es para el modelo)
+    # 2. Verificar columnas necesarias 
     subset_vars_model = num_vars_importantes + cat_vars_importantes
     missing_cols = [col for col in subset_vars_model if col not in df_input.columns]
     
@@ -99,7 +99,7 @@ def predict_churn_from_csv(df_input, model):
     try:
         probs = model.predict_proba(X_final)[:, 1]
         
-        # Preparamos el DF de salida (Usamos df_input original para conservar 'ocupacion' y 'id_user')
+        # Preparamos el DF de salida 
         df_result = df_input.copy()
         df_result['prob_churn'] = probs
         return df_result
@@ -175,7 +175,7 @@ def render(df_default=None):
     # CARGA DE DATOS Y PREDICCIÓN
     st.markdown("---")
     st.caption("Cargar nuevos datos para predecir:")
-    uploaded_file = st.file_uploader("Sube un CSV (incluyendo columnas 'ocupacion' e 'id_user')", type=['csv'])
+    uploaded_file = st.file_uploader("Sube un CSV para predecir", type=['csv'])
 
     df_risk_to_use = None
     model = load_model() 
@@ -183,7 +183,7 @@ def render(df_default=None):
     # Validación de Modelo
     if model is None:
         st.error(" No se encontró el modelo 'models/modelo_churn.pkl'.")
-        return # Si no hay modelo, no podemos hacer nada
+        return
 
     # CASO 1: Usuario sube archivo nuevo
     if uploaded_file is not None:
@@ -195,14 +195,12 @@ def render(df_default=None):
     
     # CASO 2: Usuario NO sube archivo, usamos el Default (Pero le aplicamos ML)
     elif df_default is not None:
-        # Aquí es donde ocurre la magia: Usamos el dataframe por defecto como input para el modelo
-        # No usamos spinner aquí para que la carga inicial sea fluida, o usamos uno muy rápido.
+
         df_risk_to_use = predict_churn_from_csv(df_default, model)
         
         if df_risk_to_use is not None:
             st.info(f"ℹ Mostrando predicciones calculadas sobre el set de datos base ({len(df_risk_to_use)} usuarios). Sube un archivo para analizar otros.")
     
-    # Si después de todo no hay datos procesados, salimos
     if df_risk_to_use is None:
         return
 

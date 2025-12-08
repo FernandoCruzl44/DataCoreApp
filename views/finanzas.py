@@ -62,7 +62,7 @@ def render(df_casos, df_tx, df_master):
         st.metric(
             label="Ingreso total",
             value=f"${ingreso_total:,.0f}",
-            delta="+$12,450"     # valor dummy
+            delta="+$12.4%"     # valor dummy
         )
 
         # espacio estético
@@ -72,7 +72,7 @@ def render(df_casos, df_tx, df_master):
         st.metric(
             label="Costo de oportunidad",
             value=f"${perdida_total:,.0f}",
-            delta="-$8,320"      # valor dummy
+            delta="-$8.3%"      # valor dummy
         )
 
     # gráfica: ingreso promedio por ocupación
